@@ -585,7 +585,7 @@ app.post('/upload-xlsx', (req, res)=>{
 			//let workbook = XLSX.readFile(`public/xmls/${file.name}`);
 			let workbook = XLSX.readFile(`${file.path}`);
 			let sheet_name_list = workbook.SheetNames;
-
+                probRefsCollectionsStack = '';
 			for(let x of sheet_name_list){
                 xml += uploadXLSX(workbook, x);
 			}
