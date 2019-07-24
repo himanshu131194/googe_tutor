@@ -283,8 +283,8 @@ function problemTemplate(references){
             }
         paramsList += `</params>`;
       }
-
-      return `<problem_tmpl name="${references.prob_tmp_name}" width="400">${paramsList}${text}${solutionTemplate(references)}</problem_tmpl>`
+        references.ques_width = references.ques_width || 400; 
+      return `<problem_tmpl name="${references.prob_tmp_name}" width="${references.ques_width}">${paramsList}${text}${solutionTemplate(references)}</problem_tmpl>`
      
    // return {
   //             name : `problem_tmpl`,
@@ -312,7 +312,9 @@ function checkBoxing(references){
    return `<group><boxing name="BOX_${randonInt}" count="A*B" limit="Math.max(A-1,3)">$P$</boxing><solutions><solution><cond><boxing_ref name="BOX_${randonInt}" field="group"/> == $A$</cond><cond><boxing_ref name="BOX_${randonInt}" field="size"/> == $B$</cond></solution></solutions></group>`;
 }
 
-function multipleChoiseSolutionTemplate(references){
+function multipleChoiseSolutionTemplate(ref){
+
+  let totalQuestions = ref.sub_questions;
   // let options = (references.ans_txt).split("\n");
   // let optionsWrapper = '';
   // let c = 0, sol='';
@@ -322,23 +324,44 @@ function multipleChoiseSolutionTemplate(references){
   //  optionsWrapper += '<cond><choice_ref name="'+opt+'"/>== '+k[1]+'</cond>';
   //  ++c;
   // }
-  let count = references.mcq_choises.length;
-  let mcqChioseCount = 1;
-  let choises = '';
+  let finalQuestionXML = '';
+    let alphabetArray= "abcdefghikjklmnopqrstuvwxyzabcdefghikjklmnopqrstuvwxyz";
+    let counter = 0;
 
-  //FIB with MCQ
-    let mcqUQuestions = references.mcq_question || '';
-  //
-  for(let x of references.mcq_choises){
-         choises += `<choice name="C${mcqChioseCount}">${x}</choice>`;
-         ++mcqChioseCount;
+  for(let references of totalQuestions){
+        console.log(references);
+      let count = references.mcq_choises.length;
+      let mcqChioseCount = 1;
+      let choises = '';
+      let isTypeImage = false;
+      //FIB with MCQ
+        let mcqQuestions = '';
+        let group = `<group>`;
+        if(references.mcq_question || totalQuestions.length>1){
+           mcqQuestions = `<p>${references.mcq_question}</p>`;
+           group = `<group name='${ref.prob_tmp_name}' type='MCQ'>`
+        }
+      //
+      for(let x of references.mcq_choises){
+         if(/(https?:\/\/.*\.(?:png|jpg|svg))/.test(x)){
+           isTypeImage = true;
+                   choises += `<cell><choice name="${alphabetArray[counter].toUpperCase()}${mcqChioseCount}">${x}</choice></cell>`;
+         }else
+               choises += `<choice name="${alphabetArray[counter].toUpperCase()}${mcqChioseCount}">${x}</choice>`;
+             ++mcqChioseCount;
+      }
+      if(isTypeImage){
+         choises = `<grid columns="150px 150px" gap="50px">${choises}</grid>`;
+      }
+      let choiseAnswer = references.mcq_answer;
+      if(references.mcq_answer && references.mcq_answer.match('Choice')){
+            choiseAnswer = references.mcq_answer.split(' ')[1];
+      }
+      let optionsWrapper = `<repeat val="${count}" index="i"><cond><choice_ref name="${alphabetArray[counter].toUpperCase()}$i+1$"/>==$(i)==(${parseInt(choiseAnswer)-1})$</cond></repeat>`;
+      finalQuestionXML += `${group}${mcqQuestions}${choises}<solutions><solution>${optionsWrapper}</solution></solutions></group>`;
+      ++counter;
   }
-  let choiseAnswer = references.mcq_answer;
-  if(references.mcq_answer && references.mcq_answer.match('Choice')){
-        choiseAnswer = references.mcq_answer.split(' ')[1];
-  }
-  let optionsWrapper = `<repeat val="${count}" index="i"><cond><choice_ref name="C$i+1$"/>==$(i)==(${parseInt(choiseAnswer)-1})$</cond></repeat>`;
-  return `<group>${mcqUQuestions}${choises}<solutions><solution>${optionsWrapper}</solution></solutions></group>`;
+     return finalQuestionXML;
 }
 
 function fibSolutionTemplate(references){
@@ -349,18 +372,30 @@ function fibSolutionTemplate(references){
         ++count;
   } 
     //CHECK ARRAY 
-    if(references['array'].length>0){
-      return arraySolutionTempalte(references);
+    // if(references['array'].length>0){
+    //  return arraySolutionTempalte(references);
+    // }
+    let group = `<group>`;
+    if(references.mcq_question){
+       group = `<group name='${references.prob_tmp_name}' type='FIB'>`
     }
-  return `<group>${ans_txt}<solutions><solution>${references.fib_conditions[1]}</solution></solutions></group>`;
+  return `${group}${ans_txt}<solutions><solution>${references.fib_conditions[1]}</solution></solutions></group>`;
 }
 
 function arraySolutionTempalte(references){
-  let randonInt = Math.floor(Math.random() * 100),
+  let count = 1;
+  let ans_txt = references.ans_txt;
+  for(let x of references.fib_conditions[0]){
+        ans_txt = ans_txt.replace('<FIB_'+count+'>', x)
+        ++count;
+  } 
+    let randonInt = Math.floor(Math.random() * 100),
       array = `<array name="ARY${randonInt}" row="A" column="B" symbol="${references.symbol}"/>`,
       solution = references.solution;
-  let fibSolution = `<solution><cond>${solution} == $A*B$</cond><cond><array_ref name="ARY${randonInt}" field="row"/>== $A$</cond><cond><array_ref name="ARY${randonInt}" field="column"/>== $B$</cond></solution>`;
-      fibSolution += `<solution><cond>${solution} == $A*B$</cond><cond><array_ref name="ARY${randonInt}" field="row"/>== $B$</cond><cond><array_ref name="ARY${randonInt}" field="column"/>== $A$</cond></solution>`;
+    let fibSolution = `<solution><cond>${solution} == $A*B$</cond><cond><array_ref name="ARY${randonInt}" field="row"/>== $A$</cond><cond><array_ref name="ARY${randonInt}" field="column"/>== $B$</cond></solution>`;
+      if(references.array_swap==1){
+         fibSolution += `<solution><cond>${solution} == $A*B$</cond><cond><array_ref name="ARY${randonInt}" field="row"/>== $B$</cond><cond><array_ref name="ARY${randonInt}" field="column"/>== $A$</cond></solution>`;
+      }
   return `<group>${references.ans_txt}${array}<solutions>${fibSolution}</solutions></group>`;
 }
 
@@ -414,15 +449,15 @@ function clockSolutionTemplate(references){
 
 function tapSolutionTemplate(references){
      let randonInt = Math.floor(Math.random() * 100),
-         a = parseInt(references['paramsArr'][0]['value']),
+         a = `"${references['paramsArr'][1]['value']}"`,
          k = [],
-       b = parseInt(references['paramsArr'][1]['value']);
+       b = parseInt(references['paramsArr'][0]['value']);
          while(b>0){
           k.push(a);
             --b;
          }
          let tape = `<tape name="tape${randonInt}"/>`,
-       tapeRef = `<solution><cond><tape_ref name="tape${randonInt}" />.inOrder(${k.toString()})</solution>`;
+       tapeRef = `<solution><cond><tape_ref name="tape${randonInt}" />.inOrder(${k.toString()})</cond></solution>`;
    return `<group>${references.ans_txt}${tape}<solutions>${tapeRef}</solutions></group>`;
 }
 
@@ -431,8 +466,8 @@ function nblSolutionTemplate(references){
      let randonInt = Math.floor(Math.random() * 100),
          a = parseInt(references['paramsArr'][0]['value']),
        b = parseInt(references['paramsArr'][1]['value']);
-       let numberLine = `<number_linename="nbl${randonInt}"><start text="$A$:00"x="0"/><repeat val="(${references.end}/${references.interval}/)-1" index="i"><mark text="4:20" x = "$(i+1)*interval$" />`;
-       numberLine += `</repeat><end text="$A$:interval" x = "End" /></number_line>`;
+       let numberLine = `<number_line name="nbl${randonInt}"><start text="$A$:00"x="0"/><repeat val="(${references.end}/${references.interval}/)-1" index="i"><mark text="$A$:$(i+1)*${references.interval}$" x="$(i+1)*${references.interval}$" />`;
+       numberLine += `</repeat><end text="$A$:${references.interval}" x = "${references.end}" /></number_line>`;
        let numberLineRef = `<solution><cond><number_line_ref name="nbl${randonInt}" />.containsExactly(${b}) </solution>`;
    return `<group>${references.ans_txt}${numberLine}<solutions>${numberLineRef}</solutions></group>`;
 }
@@ -447,30 +482,30 @@ function ssSolutionTemplate(references){
 
 function bgSolutionTemplate(references){
      let randonInt = Math.floor(Math.random() * 100);
-         let bg = `<bar name="bar${randonInt}" x-series="[${references.x_point.toString()}]" x-label="${references.x_axis_title}" y-range="${references.y_axis_start},${references.y_axis_end},${references.y_axis_interval}" y-label="${references.y_axis_title}" show-y-label="false" width="200" height="100" show-x-gridlines="false", show-y-gridlines="false"/>`;
-           bg += `<line_plot name="lp${randonInt}" x-range="${references.x_axis_start},${references.x_axis_end},${references.x_axis_interval}" x-label="${references.x_axis_title}" y-range="${references.y_axis_start},${references.y_axis_end},${references.y_axis_interval}" show-y-label="false" width="200" height="100" show-x-gridlines="false", show-y-gridlines="false"/>`;
-       let bgRef = `<solution>`;
+         let bg = `<bar name="bar${randonInt}" x-series="[${references.x_point.toString()}]" x-label="${references.x_axis_title}" y-range="[${references.y_axis_start},${references.y_axis_end},${references.y_axis_interval}]" y-label="true" show-y-label="false" width="200" height="100" show-x-gridlines="true", show-y-gridlines="false"/>`;
+           //bg += `<line_plot name="lp${randonInt}" x-range="${references.x_axis_start},${references.x_axis_end},${references.x_axis_interval}" x-label="${references.x_axis_title}" y-range="${references.y_axis_start},${references.y_axis_end},${references.y_axis_interval}" show-y-label="false" width="200" height="100" show-x-gridlines="false", show-y-gridlines="false"/>`;
+       let bgRef = `<solution><cond>`;
    
    for(let x=0; x<references.y_value.length; x++){
-         bgRef += `<bar_ref name="bar${randonInt}"  />.columCountAtXValue(${x})==${references.y_value[x]} &&`;
+         bgRef += `<bar_ref name="bar${randonInt}"  />.columnHeightAtXIndex(${x})==${references.y_value[x]} &&`;
    }
    bgRef = bgRef.slice(0, -2);
-   bgRef += `</solution>`;
+   bgRef += `</cond></solution>`;
    return `<group>${references.ans_txt}${bg}<solutions>${bgRef}</solutions></group>`;
 }
 
 
 function lpSolutionTemplate(references){
      let randonInt = Math.floor(Math.random() * 100);
-         let lp = `<line_plot name="lp${randonInt}" x-range="[${references.x_point.toString()}]" x-label="${references.x_axis_title}" y-range="${references.y_axis_start},${references.y_axis_end},${references.y_axis_interval}" y-label="${references.y_axis_title}" show-y-label="false" width="200" height="100" show-x-gridlines="false", show-y-gridlines="false"/>`;
-           lp += `<line_plot name="lp${randonInt}" x-series="${references.x_axis_start},${references.x_axis_end},${references.x_axis_interval}" x-label="${references.x_axis_title}" y-range="${references.y_axis_start},${references.y_axis_end},${references.y_axis_interval}" show-y-label="false" width="200" height="100" show-x-gridlines="false", show-y-gridlines="false"/>`;
-       let lpRef = `<solution>`;
+         let lp = `<line_plot name="lp${randonInt}" x-range="[${references.x_point.toString()}]" x-label="${references.x_axis_title}" y-range="[${references.y_axis_start},${references.y_axis_end},${references.y_axis_interval}]" y-label="${references.y_axis_title}" show-y-label="false" width="200" height="100" show-x-gridlines="false", show-y-gridlines="false"/>`;
+           //lp += `<line_plot name="lp${randonInt}" x-series="${references.x_axis_start},${references.x_axis_end},${references.x_axis_interval}" x-label="${references.x_axis_title}" y-range="${references.y_axis_start},${references.y_axis_end},${references.y_axis_interval}" show-y-label="false" width="200" height="100" show-x-gridlines="false", show-y-gridlines="false"/>`;
+       let lpRef = `<solution><cond>`;
    
    for(let x=0; x<references.y_value.length; x++){
          lpRef += `<line_plot_ref name="bar${randonInt}"  />.columCountAtXValue(${x})==${references.y_value[x]} &&`;
    }
    lpRef = lpRef.slice(0, -2);
-   lpRef += `</solution>`;
+   lpRef += `</cond></solution>`;
    return `<group>${references.ans_txt}${lp}<solutions>${lpRef}</solutions></group>`;
 }
 
@@ -499,6 +534,10 @@ function mcqfibSolutionTemplate(references){
 }
 
 function solutionTemplate(references){
+
+       console.log(references.sub_questions);
+
+
        if(references['boxing'].length>0){
              return checkBoxing(references);
        }
@@ -508,8 +547,10 @@ function solutionTemplate(references){
                return multipleChoiseSolutionTemplate(references);
        }else if(references.ques_type==="fib"){
            return fibSolutionTemplate(references);
+       }else if(references.ques_type==="array"){
+           return arraySolutionTempalte(references);
        }
-       else if(references.ques_type==="box"){
+       else if(references.ques_type==="boxing" || references.ques_type==="slot"){
            return boxSolutionTemplate(references);
        }
        else if(references.ques_type==="aws"){
@@ -521,16 +562,16 @@ function solutionTemplate(references){
        else if(references.ques_type==="tape"){
            return tapSolutionTemplate(references);
        }
-       else if(references.ques_type==="nbl"){
+       else if(references.ques_type==="numberline"){
            return nblSolutionTemplate(references);
        }
-       else if(references.ques_type==="ss"){
+       else if(references.ques_type==="shadingbox"){
            return ssSolutionTemplate(references);
        }
-       else if(references.ques_type==="bg"){
+       else if(references.ques_type==="bargraph"){
            return bgSolutionTemplate(references);
        }
-       else if(references.ques_type==="lp"){
+       else if(references.ques_type==="lineplot"){
            return lpSolutionTemplate(references);
        }
        else if(references.ques_type==="mcq/fib"){
@@ -622,10 +663,15 @@ function uploadXLSX(workbook, inputfiletoread){
    //bg
    questionObj['x_point'] = [];
    questionObj['y_value'] = [];
-   
-     //MCQ
-     let mcqChioseCount = 1;
-     questionObj['mcq_choises'] = [];
+
+    //MCQ
+    let mcqChioseCount = 1;
+    questionObj['mcq_choises'] = [];
+
+
+    //SUBQUESTION ARRAY
+    let subQuestionArray = [];
+    let subQuestionObj = {};
 
   for(let arrEle of xlsxJSON){
      if(arrEle.col1=='Tutor ID'){
@@ -638,6 +684,9 @@ function uploadXLSX(workbook, inputfiletoread){
       if(arrEle.col2!==undefined)
          questionObj['prob_tmp_name'] = arrEle.col2;
      }
+     if(arrEle.col1=='QuestionWidth'){
+      questionObj['ques_width'] = (arrEle.col2!==undefined) ? arrEle.col2 : 400;
+     }
      if(arrEle.col1=='Conditions' || arrEle.col1=='Condition'){
       if(arrEle.col2!==undefined)
          questionObj['conditions'].push(arrEle.col2);
@@ -645,10 +694,13 @@ function uploadXLSX(workbook, inputfiletoread){
      if(arrEle.col1=='Question'){
             if(arrEle.col2!==undefined){
            if(/(https?:\/\/.*\.(?:png|jpg|svg))/.test(arrEle.col2)){
+              arrEle.col3 = arrEle.col3 || '';
                     questionObj['ques_txt'] += `<p><img src="${arrEle.col2}" width="100" alt="${arrEle.col3}"/></p>`;
            }else
               questionObj['ques_txt'] += `<p>${arrEle.col2}</p>`;
         }
+
+        subQuestionObj['mcq_question'] = questionObj['ques_txt'];
      }
      if(arrEle.col1=='QuesType'){
       if(arrEle.col2!==undefined){
@@ -658,19 +710,38 @@ function uploadXLSX(workbook, inputfiletoread){
      if(arrEle.col1=='Answer stem' || arrEle.col1=='Answer Stem'){
       if(arrEle.col2!==undefined){
          if(/(https?:\/\/.*\.(?:png|jpg|svg))/.test(arrEle.col2)){
+            arrEle.col3 = arrEle.col3 || '';
                   questionObj['ans_txt'] += `<p><img src="${arrEle.col2}" width="100" alt="${arrEle.col3}"/></p>`;
          }else
             questionObj['ans_txt'] += `<p>${arrEle.col2}</p>`;
       }
      }
-     if(arrEle.col1 && arrEle.col1.match('Choice') && arrEle.col1!=='Choice Answer'){
-      if(arrEle.col2!==undefined){
-         questionObj['mcq_choises'].push(arrEle.col2)
-      }
+     if(arrEle.col1 && arrEle.col1.match('Choice') && arrEle.col1!=='Choice Answer' && arrEle.col2!==undefined){
+         if(/(https?:\/\/.*\.(?:png|jpg|svg))/.test(arrEle.col2)){
+            arrEle.col3 = arrEle.col3 || '';
+                questionObj['mcq_choises'].push(`<p><img src="${arrEle.col2}" width="100" alt="${arrEle.col3}"/></p>`)
+         }else
+            questionObj['mcq_choises'].push(arrEle.col2)
+
+           subQuestionObj['mcq_choises'] = questionObj['mcq_choises'];
      }
      if(arrEle.col1=='Choice Answer'){
-      if(arrEle.col2!=='' || arrEle.col2!==undefined)
-         questionObj['mcq_answer'] = arrEle.col2;
+      if(arrEle.col2!=='' || arrEle.col2!==undefined){
+         if(/(https?:\/\/.*\.(?:png|jpg|svg))/.test(arrEle.col2)){
+            arrEle.col3 = arrEle.col3 || '';
+                questionObj['mcq_answer'] = `<p><img src="${arrEle.col2}" width="100" alt="${arrEle.col3}"/></p>`;
+         }else
+            questionObj['mcq_answer'] = arrEle.col2;
+
+           subQuestionObj['mcq_answer'] = questionObj['mcq_answer'];
+
+           subQuestionArray.push(subQuestionObj);
+           subQuestionObj = {};
+               
+               questionObj['mcq_answer'] = '';
+               questionObj['mcq_choises'] = [];
+               questionObj['ques_txt'] = '';
+      }
      }
          if(arrEle.col1=='MCQ Question'){
       if(arrEle.col2!=='' || arrEle.col2!==undefined)
@@ -762,7 +833,7 @@ function uploadXLSX(workbook, inputfiletoread){
       }
      }   
      //ss
-     if(arrEle.col1 && arrEle.col1=='Shading refrence'){
+     if(arrEle.col1 && arrEle.col1=='Shading answer'){
       if(arrEle.col2!==undefined){
          questionObj['shading_ref'] = arrEle.col2;
       }
@@ -795,36 +866,43 @@ function uploadXLSX(workbook, inputfiletoread){
      } 
      if(arrEle.col1 && arrEle.col1=='Y axis Start'){
       if(arrEle.col2!==undefined){
-         questionObj['y_axis_start'] = arrEle.col2;
+         questionObj['y_axis_start'] = `'${arrEle.col2}'`;
       }
      } 
      if(arrEle.col1 && arrEle.col1=='Y axis End'){
       if(arrEle.col2!==undefined){
-         questionObj['y_axis_end'] = arrEle.col2;
+         questionObj['y_axis_end'] = `'${arrEle.col2}'`;
       }
      } 
      if(arrEle.col1 && arrEle.col1=='Y axis Interval'){
       if(arrEle.col2!==undefined){
-         questionObj['y_axis_interval'] = arrEle.col2;
+         questionObj['y_axis_interval'] = `'${arrEle.col2}'`;
       }
      } 
      if(arrEle.col1 && arrEle.col1.match('X point')){
       if(arrEle.col2!==undefined){
-         questionObj['x_point'].push(arrEle.col2)
+         questionObj['x_point'].push(`'${arrEle.col2}'`)
       }
      }
      if(arrEle.col1 && arrEle.col1.match('Y value')){
       if(arrEle.col2!==undefined){
-         questionObj['y_value'].push(arrEle.col2)
+         questionObj['y_value'].push(`'${arrEle.col2}'`)
       }
      }
      if(arrEle.col1 && arrEle.col1.match('FIB_')){
       if(arrEle.col2!==undefined){
          let count = arrEle.col1.split('_')[1];
-               fibConditionRef += `<cond><fib_ref name="fib${count}"/>==${arrEle.col2}</cond>`;
+               fibConditionRef += `<cond><fib_ref name="fib${count}"/>==$${arrEle.col2}$</cond>`;
                fibCondition.push(`<fib type="int" name="fib${count}"/>`);
       }
      }
+     if(arrEle.col1 && arrEle.col1=='Swap'){
+      if(arrEle.col2!==undefined && arrEle.col2==1){
+         questionObj['array_swap'] = 1;
+      }else{
+         questionObj['array_swap'] = 0;
+      }
+     } 
      if(variableChecker==1 && arrEle.col1!='Tutor ID' && arrEle.col1!='Variable' && arrEle.col2!==undefined){
       questionObj['paramsArr'].push({
                 key : arrEle.col1,
@@ -837,6 +915,8 @@ function uploadXLSX(workbook, inputfiletoread){
 
     questionObj['fib_conditions'].push(fibCondition);
     questionObj['fib_conditions'].push(fibConditionRef);
+
+    questionObj['sub_questions'] = subQuestionArray;
 
     let data = [
         // tutelageTempalte(questionObj),
