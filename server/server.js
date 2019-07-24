@@ -719,7 +719,7 @@ function uploadXLSX(workbook, inputfiletoread){
      if(arrEle.col1 && arrEle.col1.match('Choice') && arrEle.col1!=='Choice Answer' && arrEle.col2!==undefined){
          if(/(https?:\/\/.*\.(?:png|jpg|svg))/.test(arrEle.col2)){
             arrEle.col3 = arrEle.col3 || '';
-                questionObj['mcq_choises'].push(`<p><img src="${arrEle.col2}" width="100" alt="${arrEle.col3}"/></p>`)
+                questionObj['mcq_choises'].push(`<img src="${arrEle.col2}" width="100" alt="${arrEle.col3}"/>`)
          }else
             questionObj['mcq_choises'].push(arrEle.col2)
 
